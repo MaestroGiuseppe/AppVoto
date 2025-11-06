@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase } from '../SupabaseClient.js';
 import '../App.css'; // Assicurati che il percorso sia corretto
 
 // Funzione helper per le classi CSS dei messaggi (identica a AdminPage)
@@ -311,5 +311,6 @@ function VotoPage() {
     </div>
   );
 }
+
 
 export default VotoPage;
