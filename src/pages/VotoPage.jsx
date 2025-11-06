@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
+// Import corretto (come da ultimi fix)
 import { supabase } from '../SupabaseClient.js';
-import '../App.css'; // Assicurati che il percorso sia corretto
+import '../App.css'; 
 
 // Funzione helper per le classi CSS dei messaggi (identica a AdminPage)
 const getMessaggioClassName = (tipo) => {
@@ -14,7 +15,6 @@ function VotoPage() {
   const [votazioneStato, setVotazioneStato] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  // *** LOGICA MESSAGGI ALLINEATA AD ADMINPAGE ***
   const [messaggio, setMessaggio] = useState({ testo: '', tipo: '' }); // {testo, tipo}
 
   // Stati per il login
@@ -125,7 +125,6 @@ function VotoPage() {
        return;
     }
     
-    // LOGICA LOGO: Aggiunta
     if (votazioneStato.codice_accesso !== codiceInserito.trim()) {
       setMessaggio({ testo: 'Codice di accesso ERRATO.', tipo: 'error' });
       return;
@@ -141,7 +140,11 @@ function VotoPage() {
             cognome: cognome.trim() 
           },
           { 
-            onConflict: 'nome_cognome_unique',
+            // --- ECCO LA CORREZIONE ---
+            // Dobbiamo specificare le *colonne* del conflitto,
+            // non il nome del vincolo.
+            onConflict: 'nome, cognome', 
+            // --- FINE CORREZIONE ---
             ignoreDuplicates: false,
           }
         )
@@ -154,13 +157,10 @@ function VotoPage() {
       setPartecipante(data);
       setMessaggio({ testo: 'Accesso effettuato. Benvenuto.', tipo: 'success' });
 
-    } catch (error) { // *** QUESTO E' IL BLOCCO CORRETTO ***
+    } catch (error) {
       console.error("Errore Upsert partecipante:", error.message);
-      if (error.message.includes('duplicate key')) {
-         setMessaggio({ testo: 'Errore: combinazione Nome/Cognome già presente.', tipo: 'error' });
-      } else {
-         setMessaggio({ testo: 'Errore imprevisto during l\'accesso.', tipo: 'error' });
-      }
+      // L'errore ora dovrebbe essere più specifico, ma gestiamo anche quello generico
+      setMessaggio({ testo: `Errore imprevisto durante l'accesso: ${error.message}`, tipo: 'error' });
     } finally {
       setLoading(false);
     }
@@ -186,7 +186,7 @@ function VotoPage() {
       setMessaggio({ testo: 'Voto registrato con successo!', tipo: 'success' });
 
     } catch (error) {
-      console.error("Errore during la registrazione del voto:", error.message);
+      console.error("Errore durante la registrazione del voto:", error.message);
       setMessaggio({ testo: 'Errore: impossibile registrare il voto.', tipo: 'error' });
     } finally {
       setLoading(false);
@@ -201,7 +201,6 @@ function VotoPage() {
   if (!partecipante) {
     return (
       <div className="voto-container">
-        {/* LOGO AGGIUNTO */}
         <img 
           src="/logo.png" 
           alt="Logo Scuola" 
@@ -250,7 +249,6 @@ function VotoPage() {
   // Vista 2: Schermata di Voto
   return (
     <div className="voto-container">
-      {/* LOGO AGGIUNTO */}
       <img 
         src="/logo.png" 
         alt="Logo Scuola" 
@@ -311,6 +309,5 @@ function VotoPage() {
     </div>
   );
 }
-
 
 export default VotoPage;
