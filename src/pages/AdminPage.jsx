@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase } from '../SupabaseClient.js';
 import '../App.css'; 
 
 // Stato per i timeout dei pulsanti di conferma
@@ -547,5 +547,6 @@ function AdminPage() {
     </div>
   );
 }
+
 
 export default AdminPage;
