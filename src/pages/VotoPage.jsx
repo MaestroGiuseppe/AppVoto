@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-// Import corretto (come da ultimi fix)
+// Import corretto
 import { supabase } from '../SupabaseClient.js';
 import '../App.css'; 
 
-// Funzione helper per le classi CSS dei messaggi (identica a AdminPage)
+// Funzione helper per le classi CSS dei messaggi
 const getMessaggioClassName = (tipo) => {
   if (tipo === 'error') return 'messaggio messaggio-error';
   if (tipo === 'warn') return 'messaggio messaggio-warn';
@@ -23,13 +23,15 @@ function VotoPage() {
   const [codiceInserito, setCodiceInserito] = useState('');
 
   // Stato del partecipante loggato
-  const [partecipante, setPartecipante] = useState(null); // Contiene {id, nome, cognome, voto_espresso}
+  const [partecipante, setPartecipante] = useState(null); 
 
   // --- Funzioni Helper per Stili Dinamici ---
   
   const { haGiaVotato, votazioneChiusa } = useMemo(() => {
     const haGiaVotato = !!partecipante?.voto_espresso;
-    const votazioneChiusa = !votazioneStato?.attiva;
+    // La votazione è "chiusa" per il votante se lo stato DB è 'attiva: false'
+    // O se la 'seduta_terminata' è true.
+    const votazioneChiusa = !votazioneStato?.attiva || votazioneStato?.seduta_terminata;
     return { haGiaVotato, votazioneChiusa };
   }, [partecipante, votazioneStato]);
 
@@ -53,6 +55,13 @@ function VotoPage() {
       
       if (error) throw error;
       setVotazioneStato(data);
+      
+      // *** NUOVO CONTROLLO ***
+      // Se la seduta è già terminata, non mostrare il login
+      // ma un messaggio di chiusura.
+      if (data.seduta_terminata) {
+         setMessaggio({ testo: data.tema_delibera || 'Seduta terminata.', tipo: 'success' });
+      }
 
     } catch (error) {
       console.error("Errore nel fetchStatoVotazione:", error.message);
@@ -75,8 +84,32 @@ function VotoPage() {
           filter: 'id=eq.1'
         }, 
         (payload) => {
-          console.log('Realtime: stato votazione aggiornato!', payload.new);
-          setVotazioneStato(payload.new);
+          const statoNuovo = payload.new;
+          console.log('Realtime: stato votazione aggiornato!', statoNuovo);
+          setVotazioneStato(statoNuovo);
+          
+          // *** NUOVA LOGICA DI DISCONNESSIONE ***
+          // Se l'admin ha cliccato "Chiudi Seduta"
+          if (statoNuovo.seduta_terminata === true) {
+            
+            // Se l'utente era loggato (nella pag. voto)
+            if (partecipante) {
+              setMessaggio({ testo: statoNuovo.tema_delibera || 'Seduta terminata. Grazie.', tipo: 'success' });
+              
+              // Aspetta 4 secondi per far leggere il messaggio, poi disconnetti
+              setTimeout(() => {
+                setPartecipante(null); // Torna al login
+                // Resetta i campi di login per pulizia
+                setNome('');
+                setCognome('');
+                setCodiceInserito('');
+              }, 4000);
+            }
+            // Se l'utente era sulla pag. di login
+            else {
+              setMessaggio({ testo: statoNuovo.tema_delibera || 'Seduta terminata. Grazie.', tipo: 'success' });
+            }
+          }
         }
       )
       .subscribe();
@@ -107,7 +140,7 @@ function VotoPage() {
         supabase.removeChannel(votoChannel);
       }
     };
-  }, [partecipante]); 
+  }, [partecipante]); // Dipende da 'partecipante' per (ri)attivare il canale 2
 
   // --- Gestione Eventi ---
 
@@ -122,6 +155,13 @@ function VotoPage() {
     
     if (!votazioneStato) {
        setMessaggio({ testo: 'Stato votazione non ancora caricato. Riprova.', tipo: 'warn' });
+       return;
+    }
+    
+    // *** NUOVO CONTROLLO ***
+    // Non permettere l'accesso se la seduta è terminata
+    if (votazioneStato.seduta_terminata) {
+       setMessaggio({ testo: 'Impossibile accedere. La seduta è terminata.', tipo: 'error' });
        return;
     }
     
@@ -140,11 +180,7 @@ function VotoPage() {
             cognome: cognome.trim() 
           },
           { 
-            // --- ECCO LA CORREZIONE ---
-            // Dobbiamo specificare le *colonne* del conflitto,
-            // non il nome del vincolo.
             onConflict: 'nome, cognome', 
-            // --- FINE CORREZIONE ---
             ignoreDuplicates: false,
           }
         )
@@ -159,14 +195,14 @@ function VotoPage() {
 
     } catch (error) {
       console.error("Errore Upsert partecipante:", error.message);
-      // L'errore ora dovrebbe essere più specifico, ma gestiamo anche quello generico
-      setMessaggio({ testo: `Errore imprevisto durante l'accesso: ${error.message}`, tipo: 'error' });
+      setMessaggio({ testo: `Errore imprevisto during l'accesso: ${error.message}`, tipo: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
   const handleVoto = async (votoScelto) => {
+    // Bloccato se ha votato, se la votazione è chiusa (attiva:false) O se la seduta è terminata
     if (haGiaVotato || votazioneChiusa || !partecipante) return;
 
     setLoading(true);
@@ -208,39 +244,50 @@ function VotoPage() {
           onError={(e) => { e.target.style.display = 'none'; }}
         />
         <h2>Accesso Votazione</h2>
-        <p>Inserisci i tuoi dati e il codice della seduta.</p>
         
-        <form onSubmit={handleAccesso} className="login-form">
-          <input 
-            type="text" 
-            placeholder="Nome" 
-            value={nome}
-            onChange={(e) => setNome(e.target.value)}
-          />
-          <input 
-            type="text" 
-            placeholder="Cognome" 
-            value={cognome}
-            onChange={(e) => setCognome(e.target.value)}
-          />
-          <input 
-            type="text" 
-            placeholder="Codice Votazione" 
-            value={codiceInserito}
-            onChange={(e) => setCodiceInserito(e.target.value)}
-          />
-          <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? 'Accesso in corso...' : 'Accedi per Votare'}
-          </button>
-        </form>
+        {/* Mostra il form di login SOLO SE la seduta non è terminata */}
+        {!votazioneStato?.seduta_terminata && (
+          <>
+            <p>Inserisci i tuoi dati e il codice della seduta.</p>
+            <form onSubmit={handleAccesso} className="login-form">
+              <input 
+                type="text" 
+                placeholder="Nome" 
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+              />
+              <input 
+                type="text" 
+                placeholder="Cognome" 
+                value={cognome}
+                onChange={(e) => setCognome(e.target.value)}
+              />
+              <input 
+                type="text" 
+                placeholder="Codice Votazione" 
+                value={codiceInserito}
+                onChange={(e) => setCodiceInserito(e.target.value)}
+              />
+              <button type="submit" className="btn-primary" disabled={loading}>
+                {loading ? 'Accesso in corso...' : 'Accedi per Votare'}
+              </button>
+            </form>
+          </>
+        )}
+        
         {messaggio.testo && (
           <p className={getMessaggioClassName(messaggio.tipo)}>{messaggio.testo}</p>
         )}
+        
         <div className="stato-footer">
           Stato: 
-          <strong className={votazioneStato?.attiva ? 'attivo' : 'non-attivo'}>
-             {votazioneStato?.attiva ? ' APERTA' : ' CHIUSA'}
-          </strong>
+          {!votazioneStato?.seduta_terminata ? (
+            <strong className={votazioneStato?.attiva ? 'attivo' : 'non-attivo'}>
+               {votazioneStato?.attiva ? ' APERTA' : ' CHIUSA'}
+            </strong>
+          ) : (
+            <strong className="non-attivo">SEDUTA TERMINATA</strong>
+          )}
         </div>
       </div>
     );
@@ -291,18 +338,26 @@ function VotoPage() {
       )}
 
       {/* Messaggio di stato persistente */}
-      {!haGiaVotato && votazioneChiusa && (
+      {/* Mostra se la seduta è terminata */}
+      {votazioneStato?.seduta_terminata && (
+         <p className="messaggio messaggio-success">
+           La seduta è terminata. Grazie.
+         </p>
+      )}
+      
+      {/* Mostra se la seduta NON è terminata */}
+      {!votazioneStato?.seduta_terminata && !haGiaVotato && votazioneChiusa && (
          <p className="messaggio messaggio-error">
            La votazione è CHIUSA. Non è possibile votare.
          </p>
       )}
-      {haGiaVotato && (
+      {!votazioneStato?.seduta_terminata && haGiaVotato && (
          <p className="messaggio messaggio-success">
            Hai già votato: <strong>{partecipante.voto_espresso}</strong>.
            {votazioneChiusa && " La votazione è ora chiusa."}
          </p>
       )}
-      {!haGiaVotato && !votazioneChiusa && (
+      {!votazioneStato?.seduta_terminata && !haGiaVotato && !votazioneChiusa && (
           <p className="messaggio">La votazione è APERTA. Esprimi il tuo voto.</p>
       )}
 
