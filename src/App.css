@@ -13,6 +13,11 @@
   --colore-card: #ffffff;
   --colore-bordo: #e5e5ea;
   --colore-testo-chiaro: #6c6c70;
+  
+  /* Nuovi colori per la LIM (sfondo scuro) */
+  --colore-live-sfondo: #1c1c1e;
+  --colore-live-testo: #ffffff;
+  --colore-live-card: #2c2c2e;
 }
 
 /* --- Reset Base --- */
@@ -288,4 +293,87 @@ button:disabled {
     padding: 1.5rem 1rem; /* Pulsanti più alti */
     font-size: 1.2rem;
   }
+}
+
+/* * --- NUOVI STILI PER PAGINA LIVE VIEW (LIM) ---
+ */
+.liveview-container {
+  background-color: var(--colore-live-sfondo);
+  color: var(--colore-live-testo);
+  padding: 2rem;
+  box-sizing: border-box;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.live-header {
+  width: 100%;
+  max-width: 1200px;
+  text-align: center;
+  border-bottom: 2px solid var(--colore-live-card);
+  padding-bottom: 1.5rem;
+}
+
+.live-title {
+  font-size: 3rem; /* Molto grande */
+  font-weight: 700;
+  margin: 0 0 1rem 0;
+}
+
+.live-status {
+  font-size: 1.5rem;
+  font-weight: 600;
+  padding: 0.5rem 1.5rem;
+  border-radius: 8px;
+  display: inline-block;
+}
+.live-status.attivo {
+  background-color: var(--colore-secondario);
+  color: white;
+}
+.live-status.non-attivo {
+  background-color: var(--colore-stop);
+  color: white;
+}
+
+.live-chart-area {
+  width: 100%;
+  max-width: 1200px;
+  height: 400px; /* Altezza fissa per il grafico */
+  margin-top: 3rem;
+}
+
+.live-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+  width: 100%;
+  max-width: 1200px;
+  margin-top: 3rem;
+}
+
+.live-stat-item {
+  background-color: var(--colore-live-card);
+  padding: 1.5rem;
+  border-radius: 12px;
+  text-align: center;
+}
+.live-stat-item span {
+  display: block;
+  font-size: 1.5rem;
+  color: var(--colore-testo-chiaro);
+  margin-bottom: 0.5rem;
+}
+.live-stat-item strong {
+  display: block;
+  font-size: 4rem; /* Numeri enormi */
+  font-weight: 700;
+}
+
+/* Stili per il tooltip del grafico */
+.recharts-tooltip-wrapper {
+  color: var(--colore-testo);
 }
